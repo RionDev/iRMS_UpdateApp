@@ -61,7 +61,7 @@ export function TargetsPage() {
               type="checkbox"
               aria-label={`${t.project_name} 사용`}
               checked={t.enabled}
-              onChange={() => setToggling(t)}
+              onChange={() => openToggle(t)}
             />
           </span>
         ) : (
@@ -70,6 +70,17 @@ export function TargetsPage() {
     },
     { key: "ready_count", label: "READY 시그널", render: (t) => t.ready_count || "-" },
   ];
+
+  // 끄기 창의 READY 건수는 창을 여는 순간 다시 읽는다 — 화면을 연 뒤 autoflow 가 남긴 신호도 경고에 넣기 위해
+  const openToggle = async (t: TargetItem) => {
+    try {
+      const fresh = (await listTargets()).items;
+      setItems(fresh);
+      setToggling(fresh.find((x) => x.project_id === t.project_id) ?? t);
+    } catch {
+      setToggling(t);
+    }
+  };
 
   const openEdit = (t: TargetItem) => {
     if (!canEdit) return;
@@ -172,11 +183,10 @@ export function TargetsPage() {
         {toggling?.enabled ? (
           <>
             끄면 autoflow 가 이 엔진 신호를 더 남기지 않고, 다음 배포 트리(TES6.0 · TLX6.0)에서 이 엔진 모듈이 빠집니다.
-            {toggling.ready_count > 0 && (
-              <p style={{ margin: "8px 0 0", color: c.danger }}>
-                이미 READY 인 신호 {toggling.ready_count}건은 ENGINE_UNKNOWN 으로 실패합니다.
-              </p>
-            )}
+            <p style={{ margin: "8px 0 0", color: toggling.ready_count > 0 ? c.danger : c.textMuted }}>
+              지금 READY 인 이 엔진 신호: {toggling.ready_count}건
+              {toggling.ready_count > 0 && " — 끄면 ENGINE_UNKNOWN 으로 실패합니다."}
+            </p>
           </>
         ) : (
           "켜면 다음 릴리스부터 autoflow 신호를 남기고, 다음 배포 트리에 이 엔진을 넣습니다."
