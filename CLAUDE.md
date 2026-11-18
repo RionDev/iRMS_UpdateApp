@@ -1,15 +1,21 @@
 # iRMS 업데이트 App
 
-업데이트 앱. 현재는 공통 AppLayout에 "아직 서비스 하지 않습니다." 메시지만 출력하는 placeholder.
+업데이트 앱 — 배포 설정 · 배포 상태 조회. API 는 BE `update_service`(`/api/update/*`).
 
 ## 책임
 
-- 추후 업데이트 기능 구현 예정
+- 배포 시그널 · 배포 기록 · 패턴 수동 요청 조회, 배포 대상 · 배포 시각 편집, 패턴 수동 빌드 · 배포 요청
+- 엔진 배포 자체는 하지 않는다 — GitLab(master 머지 → CI · qc job) → autoflow → postmark 가 한다. **시그널 재시도 버튼은 두지 않는다** (2026-11-18 결정, 다시 내보내려면 GitLab 에서 새로 릴리스)
 
 ## 고유 규칙
 
 - 독립 실행 시 Vite dev server 포트 3009 사용
 - 게이트웨이 경로: `/update/`
+- 화면 틀은 `components/PageShell`(앱 권한 + 메뉴), 목록은 `components/PagedTable` + common `usePagedNav`
+- 상태값 라벨 · 색은 `src/constants.ts` 한 곳 (숫자 뜻은 iRMS_DB `14-deploy.sql` COMMENT)
+- FIRST 행(`is_first`)은 회색 FIRST 표 + 흐린 행으로 autoflow 시그널과 구분
+- GitLab 경로 규칙은 `src/utils/gitlab.ts` 한 곳 (7zip 만 `developer/thirdparty-library/7zip`)
+- 배포 대상 끄기 · module_name 변경 · 배포 시각 변경은 postmark 가 바로 반영하므로 확인 모달에 영향(READY 신호 실패, 오늘 한 번 더 배포)을 적는다
 
 ## 앱·기능 권한 (필수)
 
