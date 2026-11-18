@@ -1,9 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@common/pages/LoginPage';
 import { SignupPage } from '@common/pages/SignupPage';
-import { AppCenterMessage } from '@common/components/AppCenterMessage';
-import { AppLayout } from '@common/components/AppLayout';
 import { useAuthStore } from '@common/stores/authStore';
+import { updateRoutes } from './routes';
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -14,21 +13,17 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-function PlaceholderPage() {
-  return (
-    <AppLayout appName="업데이트" sidebarItems={[]} version={__APP_VERSION__}>
-      <AppCenterMessage>아직 서비스 하지 않습니다.</AppCenterMessage>
-    </AppLayout>
-  );
-}
-
 export function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage signupUrl="/update/signup" defaultRedirect="/update/" />} />
+      <Route path="/login" element={<LoginPage signupUrl="/update/signup" defaultRedirect="/update/signals" />} />
       <Route path="/signup" element={<SignupPage loginUrl="/update/login" />} />
-      <Route path="/" element={<RequireAuth><PlaceholderPage /></RequireAuth>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/signals" element={<RequireAuth>{updateRoutes.signals}</RequireAuth>} />
+      <Route path="/logs" element={<RequireAuth>{updateRoutes.logs}</RequireAuth>} />
+      <Route path="/requests" element={<RequireAuth>{updateRoutes.requests}</RequireAuth>} />
+      <Route path="/targets" element={<RequireAuth>{updateRoutes.targets}</RequireAuth>} />
+      <Route path="/schedule" element={<RequireAuth>{updateRoutes.schedule}</RequireAuth>} />
+      <Route path="*" element={<Navigate to="/signals" replace />} />
     </Routes>
   );
 }
