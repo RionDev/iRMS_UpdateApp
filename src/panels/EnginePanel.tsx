@@ -6,12 +6,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Chips } from "../components/Chips";
 import { PagedTable } from "../components/PagedTable";
 import { useLoadError } from "../hooks/useLoadError";
-import { PageShell } from "../components/PageShell";
+import { Pane } from "../components/Pane";
 import { StatusBadge } from "../components/StatusBadge";
 import { FIRST_BADGE, FIRST_TITLE, SIGNAL_STATUS } from "../constants";
 import { listCurrent, listSignals } from "../services/updateService";
 import type { CurrentItem, SignalFilters, SignalItem } from "../types/deploy";
-import { gitlabPipelinesUrl, gitlabTagUrl } from "../utils/gitlab";
 
 const PAGE_SIZE = 20;
 
@@ -28,21 +27,6 @@ const KIND_OPTIONS: { value: SignalFilters["kind"]; label: string }[] = [
 /** 'YYYY-MM-DD HH:MM:SS' → 'MM-DD HH:MM' (표에서 짧게) */
 function short(t: string | null) {
   return t ? t.slice(5, 16) : "-";
-}
-
-function GitlabLinks({ name, tag }: { name: string; tag: string }) {
-  const { theme } = useThemeStore();
-  const a = { color: theme.colors.primary, textDecoration: "none" };
-  return (
-    <span style={{ display: "inline-flex", gap: "10px" }} onClick={(e) => e.stopPropagation()}>
-      <a href={gitlabTagUrl(name, tag)} target="_blank" rel="noreferrer" style={a}>
-        태그
-      </a>
-      <a href={gitlabPipelinesUrl(name, tag)} target="_blank" rel="noreferrer" style={a}>
-        파이프라인
-      </a>
-    </span>
-  );
 }
 
 /** 위 요약: 엔진별 현재 배포 태그(postmark 기준과 같음) */
@@ -93,7 +77,8 @@ function CurrentStrip({ items }: { items: CurrentItem[] }) {
   );
 }
 
-export function SignalsPage() {
+/** 배포 현황 왼쪽 — 엔진: 엔진별 현재 태그 + 배포 시그널. */
+export function EnginePanel() {
   const { theme } = useThemeStore();
   const [current, setCurrent] = useState<CurrentItem[]>([]);
   const [filters, setFilters] = useState<SignalFilters>({});
@@ -141,13 +126,11 @@ export function SignalsPage() {
         ),
     },
     { key: "created_at", label: "생성", render: (s) => <span style={dim(s)}>{short(s.created_at)}</span> },
-    { key: "taken_at", label: "가져감", render: (s) => <span style={dim(s)}>{short(s.taken_at)}</span> },
     { key: "done_at", label: "완료", render: (s) => <span style={dim(s)}>{short(s.done_at)}</span> },
-    { key: "gitlab", label: "GitLab", render: (s) => <GitlabLinks name={s.project_name} tag={s.tag} /> },
   ];
 
   return (
-    <PageShell title="배포 시그널">
+    <Pane title="엔진" note="GitLab 릴리스 → autoflow 시그널 → postmark 배포">
       <CurrentStrip items={current} />
       <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", flexShrink: 0 }}>
         <SearchSelect
@@ -193,10 +176,6 @@ export function SignalsPage() {
         </button>
       </div>
       <PagedTable nav={nav} columns={columns} rowKey={(s) => s.id} empty="시그널이 없습니다." error={loadError} />
-      <p style={{ margin: 0, fontSize: theme.fontSize.sm, color: theme.colors.textMuted, flexShrink: 0 }}>
-        엔진 배포는 GitLab(master 머지 → CI · qc job) → autoflow → postmark 가 합니다. 이 화면은 상태만 보여 줍니다.
-        다시 내보내려면 GitLab 에서 새로 릴리스하세요.
-      </p>
-    </PageShell>
+    </Pane>
   );
 }

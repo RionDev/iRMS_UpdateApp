@@ -16,14 +16,13 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
 export function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage signupUrl="/update/signup" defaultRedirect="/update/signals" />} />
+      <Route path="/login" element={<LoginPage signupUrl="/update/signup" defaultRedirect="/update/status" />} />
       <Route path="/signup" element={<SignupPage loginUrl="/update/login" />} />
-      <Route path="/signals" element={<RequireAuth>{updateRoutes.signals}</RequireAuth>} />
+      <Route path="/status" element={<RequireAuth>{updateRoutes.status}</RequireAuth>} />
       <Route path="/logs" element={<RequireAuth>{updateRoutes.logs}</RequireAuth>} />
-      <Route path="/requests" element={<RequireAuth>{updateRoutes.requests}</RequireAuth>} />
       <Route path="/targets" element={<RequireAuth>{updateRoutes.targets}</RequireAuth>} />
       <Route path="/schedule" element={<RequireAuth>{updateRoutes.schedule}</RequireAuth>} />
-      <Route path="*" element={<Navigate to="/signals" replace />} />
+      <Route path="*" element={<Navigate to="/status" replace />} />
     </Routes>
   );
 }

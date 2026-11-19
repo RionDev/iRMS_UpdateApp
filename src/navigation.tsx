@@ -23,9 +23,6 @@ const logIcon = svg([
   <circle key="a" cx="12" cy="12" r="10" />,
   <polyline key="b" points="12 6 12 12 16 14" />,
 ]);
-const requestIcon = svg([
-  <polygon key="a" points="5 3 19 12 5 21 5 3" />,
-]);
 const targetIcon = svg([
   <rect key="a" x="3" y="3" width="7" height="7" />,
   <rect key="b" x="14" y="3" width="7" height="7" />,
@@ -39,7 +36,7 @@ const scheduleIcon = svg([
   <line key="d" x1="3" y1="10" x2="21" y2="10" />,
 ]);
 
-/** 왼쪽 메뉴. 다섯 화면 모두 조회(view) 권한으로 보이고, 편집 버튼만 각 화면에서 따로 숨긴다. */
+/** 왼쪽 메뉴. 네 화면 모두 조회(view) 권한으로 보이고, 편집 버튼만 각 화면에서 따로 숨긴다. */
 export function useUpdateNavItems(): SidebarItem[] {
   const { can } = useFeatures(UPDATE_APP);
   return useMemo(() => {
@@ -49,9 +46,8 @@ export function useUpdateNavItems(): SidebarItem[] {
         label: "배포 상태",
         icon: signalIcon,
         children: [
-          { label: "배포 시그널", to: "/signals", icon: signalIcon },
+          { label: "배포 현황", to: "/status", icon: signalIcon },
           { label: "배포 기록", to: "/logs", icon: logIcon },
-          { label: "패턴 수동 요청", to: "/requests", icon: requestIcon },
         ],
       },
       {

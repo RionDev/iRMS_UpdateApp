@@ -6,13 +6,13 @@ import { useThemeStore } from "@common/stores/themeStore";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { PagedTable } from "../components/PagedTable";
-import { PageShell } from "../components/PageShell";
+import { Pane } from "../components/Pane";
 import { useLoadError } from "../hooks/useLoadError";
 import { StatusBadge } from "../components/StatusBadge";
 import { REQUEST_POLL_MS, REQUEST_STATUS } from "../constants";
 import { UPDATE_APP, UpdateFeature } from "../features";
-import { createRequest, listRequests } from "../services/updateService";
-import type { PatternRequestItem } from "../types/deploy";
+import { createRequest, listRequests, listSchedules } from "../services/updateService";
+import type { PatternRequestItem, SchedulePage } from "../types/deploy";
 
 const PAGE_SIZE = 20;
 
@@ -20,7 +20,8 @@ function short(t: string | null) {
   return t ? t.slice(5, 16) : "-";
 }
 
-export function RequestsPage() {
+/** 배포 현황 오른쪽 — 패턴: 정기 배포 시각 · 패턴 수동 요청. */
+export function PatternPanel() {
   const { theme } = useThemeStore();
   const c = theme.colors;
   const { can } = useFeatures(UPDATE_APP);
@@ -28,6 +29,12 @@ export function RequestsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [schedule, setSchedule] = useState<SchedulePage | null>(null);
+  useEffect(() => {
+    listSchedules()
+      .then(setSchedule)
+      .catch(() => setSchedule(null));
+  }, [reloadKey]);
   const { error: loadError, track } = useLoadError();
 
   const fetcher = useCallback(
@@ -70,22 +77,17 @@ export function RequestsPage() {
       key: "status",
       label: "상태",
       render: (r) => (
-        <span style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+        <span
+          style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}
+          title={`빌드 시작 ${short(r.build_at)} · 배포 대기 ${short(r.ready_at)} · 배포 시작 ${short(r.deploy_at)}${r.runs ? ` · 회차 ${r.runs}` : ""}`}
+        >
           <StatusBadge meta={REQUEST_STATUS[r.status]} />
           {r.force_build && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>force</span>}
         </span>
       ),
     },
     { key: "created_at", label: "요청", render: (r) => short(r.created_at) },
-    { key: "build_at", label: "빌드 시작", render: (r) => short(r.build_at) },
-    { key: "ready_at", label: "배포 대기", render: (r) => short(r.ready_at) },
-    { key: "deploy_at", label: "배포 시작", render: (r) => short(r.deploy_at) },
     { key: "done_at", label: "끝", render: (r) => short(r.done_at) },
-    {
-      key: "runs",
-      label: "회차",
-      render: (r) => <span style={{ fontFamily: "monospace", fontSize: theme.fontSize.sm }}>{r.runs ?? "-"}</span>,
-    },
     {
       key: "message",
       label: "사유",
@@ -94,7 +96,7 @@ export function RequestsPage() {
   ];
 
   return (
-    <PageShell title="패턴 수동 요청">
+    <Pane title="패턴" note="ptnbuild 빌드 · QC → postmark 배포">
       <div
         style={{
           display: "flex",
@@ -110,10 +112,17 @@ export function RequestsPage() {
         }}
       >
         <div style={{ flex: 1, minWidth: "260px", fontSize: theme.fontSize.base, color: c.text, lineHeight: 1.6 }}>
-          그날 바로 낼 패턴을 요청합니다. ptnbuild 가 빌드 · QC 를 하고, 통과하면 postmark 가 배포합니다.
+          <b style={{ fontWeight: 600 }}>정기 배포</b>{" "}
+          <span style={{ fontFamily: "monospace" }}>
+            {schedule ? schedule.items.map((s) => s.time).join(" · ") || "-" : "-"}
+          </span>
+          <span style={{ color: c.textMuted, fontSize: theme.fontSize.sm }}>
+            {" "}
+            — 오늘 {schedule?.today_schedule_deployed_at ? `${schedule.today_schedule_deployed_at.slice(11, 16)} 배포함` : "아직 안 함"}
+          </span>
           <br />
           <span style={{ color: c.textMuted, fontSize: theme.fontSize.sm }}>
-            정기 배포는 배포 시각 화면의 시각에 자동으로 나갑니다.
+            그날 바로 낼 패턴은 수동 요청 — ptnbuild 빌드 · QC 를 통과하면 postmark 가 배포합니다.
           </span>
         </div>
         {can(UpdateFeature.PATTERN_REQUEST) && (
@@ -164,6 +173,6 @@ export function RequestsPage() {
           </p>
         )}
       </ConfirmModal>
-    </PageShell>
+    </Pane>
   );
 }
