@@ -9,8 +9,9 @@ import { useLoadError } from "../hooks/useLoadError";
 import { Pane } from "../components/Pane";
 import { StatusBadge } from "../components/StatusBadge";
 import { FIRST_BADGE, FIRST_TITLE, SIGNAL_STATUS } from "../constants";
-import { listCurrent, listSignals } from "../services/updateService";
-import type { CurrentItem, SignalFilters, SignalItem } from "../types/deploy";
+import { listCurrent, listPipelines, listSignals } from "../services/updateService";
+import type { CurrentItem, PipelineList, SignalFilters, SignalItem } from "../types/deploy";
+import { pipelineMeta, pipelineTitle } from "../utils/pipeline";
 
 const PAGE_SIZE = 20;
 
@@ -29,8 +30,9 @@ function short(t: string | null) {
   return t ? t.slice(5, 16) : "-";
 }
 
-/** 위 요약: 엔진별 현재 배포 태그(postmark 기준과 같음) */
-function CurrentStrip({ items }: { items: CurrentItem[] }) {
+/** 위 요약: 엔진별 현재 배포 태그(postmark 기준과 같음) + 최근 master 파이프라인 성공 · 실패 */
+function CurrentStrip({ items, pipes }: { items: CurrentItem[]; pipes: PipelineList | null }) {
+  const byId = new Map((pipes?.items ?? []).map((p) => [p.project_id, p]));
   const { theme } = useThemeStore();
   const c = theme.colors;
   return (
@@ -48,7 +50,10 @@ function CurrentStrip({ items }: { items: CurrentItem[] }) {
         flexShrink: 0,
       }}
     >
-      <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted, width: "100%" }}>엔진별 현재 배포 태그</span>
+      <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted, width: "100%" }}>
+        엔진별 현재 배포 태그 · 최근 master 파이프라인
+        {pipes && !pipes.available && ` (파이프라인: ${pipes.reason})`}
+      </span>
       {items.map((i) => (
         <span
           key={i.project_id}
@@ -70,6 +75,23 @@ function CurrentStrip({ items }: { items: CurrentItem[] }) {
           {i.latest_status !== null && i.latest_status !== 3 && (
             <StatusBadge meta={SIGNAL_STATUS[i.latest_status]} title={`가장 최근 시그널 ${i.latest_tag}`} />
           )}
+          {(() => {
+            const p = byId.get(i.project_id);
+            if (!p) return null;
+            if (p.error) return <StatusBadge meta={{ label: "조회 실패", tone: "muted" }} title={p.error} />;
+            if (!p.pipeline) return null;
+            const failed = p.pipeline.status === "failed";
+            return (
+              <>
+                <StatusBadge meta={pipelineMeta(p.pipeline.status)} title={pipelineTitle(p.pipeline)} />
+                {failed && p.pipeline.version && (
+                  <span style={{ fontSize: theme.fontSize.sm, color: c.danger, fontFamily: "monospace" }} title={pipelineTitle(p.pipeline)}>
+                    {p.pipeline.version}
+                  </span>
+                )}
+              </>
+            );
+          })()}
           {!i.enabled && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>꺼짐</span>}
         </span>
       ))}
@@ -85,6 +107,13 @@ export function EnginePanel() {
   const [reloadKey, setReloadKey] = useState(0);
   const filterKey = JSON.stringify(filters);
   const { error: loadError, track } = useLoadError();
+
+  const [pipes, setPipes] = useState<PipelineList | null>(null);
+  useEffect(() => {
+    listPipelines()
+      .then(setPipes)
+      .catch(() => setPipes(null));
+  }, [reloadKey]);
 
   useEffect(() => {
     listCurrent()
@@ -131,7 +160,7 @@ export function EnginePanel() {
 
   return (
     <Pane title="엔진" note="GitLab 릴리스 → autoflow 시그널 → postmark 배포">
-      <CurrentStrip items={current} />
+      <CurrentStrip items={current} pipes={pipes} />
       <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", flexShrink: 0 }}>
         <SearchSelect
           aria-label="엔진"

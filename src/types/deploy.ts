@@ -151,3 +151,29 @@ export interface DaemonPolicies {
 
 /** { 서비스: { 키: 새 값 } } */
 export type PolicyEdits = Record<string, Record<string, string>>;
+
+// ──── GitLab 파이프라인 ────
+
+export interface PipelineInfo {
+  id: number;
+  status: string;
+  /** master, 또는 master 파이프라인이 없는 프로젝트(7zip)는 태그 */
+  ref: string | null;
+  created_at: string | null;
+  /** 실패일 때만 — CMakeLists PROJECT_VERSION */
+  version: string | null;
+  failed_jobs: string[];
+}
+
+export interface PipelineItem {
+  project_id: number;
+  project_name: string;
+  pipeline: PipelineInfo | null;
+  error: string | null;
+}
+
+export interface PipelineList {
+  available: boolean;
+  reason: string | null;
+  items: PipelineItem[];
+}

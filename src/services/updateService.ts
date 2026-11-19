@@ -3,6 +3,7 @@ import type { Page } from "@common/types/pagination";
 import type {
   CurrentItem,
   DaemonPolicies,
+  PipelineList,
   PolicyEdits,
   LogFilters,
   LogItem,
@@ -94,4 +95,8 @@ export async function listDaemonPolicies(): Promise<DaemonPolicies> {
 
 export async function updateDaemonPolicies(changes: PolicyEdits): Promise<DaemonPolicies> {
   return (await apiClient.put("/api/update/daemon-policies", { changes })).data;
+}
+
+export async function listPipelines(): Promise<PipelineList> {
+  return (await apiClient.get("/api/update/pipelines")).data;
 }
