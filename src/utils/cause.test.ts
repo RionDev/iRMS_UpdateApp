@@ -13,7 +13,7 @@ const log = (o: Partial<Parameters<typeof logCause>[0]>) => ({
 
 describe("logCause — 배포를 일으킨 것", () => {
   it("156 명령줄 빌드(ptnbuild build)는 웹 요청과 구분", () => {
-    expect(logCause(log({ request_id: 1, request_requested_by: "ptnbuild build" }))).toBe("156 에서 직접 빌드 #1");
+    expect(logCause(log({ request_id: 1, request_requested_by: "ptnbuild build" }))).toBe("서버 수동 빌드 #1");
   });
   it("웹 요청은 요청자 이름과 함께", () => {
     expect(logCause(log({ request_id: 3, request_requested_by: "전상연" }))).toBe("웹 수동 요청 #3 · 전상연");
@@ -35,7 +35,7 @@ describe("요청 목록 — requested_by 값 하나로만 판별", () => {
     expect(isCliRequest(null)).toBe(false);
   });
   it("요청자 칸 표시", () => {
-    expect(requesterLabel("ptnbuild build")).toBe("156 직접 빌드");
+    expect(requesterLabel("ptnbuild build")).toBe("서버 수동 빌드");
     expect(requesterLabel("전상연")).toBe("전상연");
     expect(requesterLabel(null)).toBe("-");
   });

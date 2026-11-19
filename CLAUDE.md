@@ -22,7 +22,8 @@
 - 데몬 정책 화면(`pages/PoliciesPage`)은 BE 가 주는 키 명세(범위 · 정규식 · 읽기 전용 이유)로 칸을 그리고 `utils/policy.ts` 로 먼저 검사한다. 규칙의 정본은 BE `policy_spec.py` — FE 에 키 목록을 따로 두지 않는다
 - 데몬 정책은 **배포 데몬 3개**(156 의 NpPtnBuild · NpPostmark · NpBdUpdate)만. 250 의 NpRegiMal · NpSigExt · NpClusmal 은 샘플 앱 몫이다(2026-11-19 결정)
 - 정기 배포 시각은 따로 화면 · 테이블이 없다 — NpPostmark.DEPLOY_TIME 칸에서 바꾸고(`utils/deployTime.ts` 경고: QA 12:00 뒤 · BUILD_HOUR 와 2시간 미만 · 오늘 한 번 더), 배포 현황 패턴 칸은 `GET /schedule` 로 보여 주기만 한다
-- ptnbuild 0.0.0.6 부터 156 명령줄 빌드도 `pattern_request` 에 `requested_by='ptnbuild build'`(ptnbuild `REQUEST_BY_CLI`)로 행을 남긴다 — `utils/cause.ts` 가 이 값 하나로만 웹 요청과 구분해 "156 에서 직접 빌드 #id" / "웹 수동 요청 #id · 이름" 으로 보여 준다. 웹에는 요청 취소 같은 조작이 없다
+- ptnbuild 0.0.0.6 부터 156 명령줄 빌드도 `pattern_request` 에 `requested_by='ptnbuild build'`(ptnbuild `REQUEST_BY_CLI`)로 행을 남긴다 — `utils/cause.ts` 가 이 값 하나로만 웹 요청과 구분해 "서버 수동 빌드 #id" / "웹 수동 요청 #id · 이름" 으로 보여 준다. 웹에는 요청 취소 같은 조작이 없다
+- QC 패키지 체크 = ptnbuild 패턴 QC 에 쓸 엔진. 잠금(`qc_lock` on/off)과 안내(`qc_note`)는 BE `qc_rules.py` 가 목록 응답으로 준다 — FE 에 엔진 목록을 두지 않는다
 - 패턴 수동 요청에 force 는 없다 — 전량 예외 청크는 156 에서 `ptnbuild build --force`
 - 배포 대상은 꺼진 채로만 추가한다. 켜기 창은 열 때 `POST /targets/{id}/check` 로 GitLab 확인 결과(버전 · FIRST 여부 · 문제)를 보여 주고, 통과 못 하면 켜기 버튼을 막는다(BE 도 다시 확인 · 409)
 

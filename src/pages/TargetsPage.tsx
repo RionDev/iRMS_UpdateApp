@@ -15,14 +15,30 @@ import { errorMessage, InputError } from "../utils/error";
 
 const EMPTY_FORM = { project_id: "", project_name: "", module_name: "", windows_only: false, qc_package: true };
 
-function Check({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Check({
+  id,
+  label,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label htmlFor={id} style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label htmlFor={id} style={{ display: "inline-flex", gap: "6px", alignItems: "center", opacity: disabled ? 0.6 : 1 }}>
+      <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       {label}
+      {disabled && " 🔒"}
     </label>
   );
 }
+
+const QC_LABEL = "ptnbuild 패턴 QC 에 씀 (qcengine · 콘솔 cfg)";
+const NEW_ENGINE_QC_NOTE = "새 엔진은 ixtehb 가 지원하지 않으면 켜도 QC 에 쓰이지 않습니다(로그 QC_ENGINE_UNUSED).";
 
 export function TargetsPage() {
   const { theme } = useThemeStore();
@@ -59,7 +75,16 @@ export function TargetsPage() {
     { key: "project_name", label: "이름", render: (t) => <b style={{ fontWeight: 600 }}>{t.project_name}</b> },
     { key: "module_name", label: "모듈 파일", render: (t) => <span style={{ fontFamily: "monospace" }}>{t.module_name}</span> },
     { key: "windows_only", label: "Windows 전용", render: (t) => yes(t.windows_only) },
-    { key: "qc_package", label: "QC 패키지", render: (t) => yes(t.qc_package) },
+    {
+      key: "qc_package",
+      label: "QC",
+      render: (t) => (
+        <span title={t.qc_note}>
+          {yes(t.qc_package)}
+          {t.qc_lock && <span style={{ color: c.textMuted }}> 🔒</span>}
+        </span>
+      ),
+    },
     {
       key: "enabled",
       label: "사용",
@@ -159,7 +184,8 @@ export function TargetsPage() {
           <Input id="t-name" label="GitLab 프로젝트 이름" maxLength={64} value={form.project_name} onChange={(e) => setForm({ ...form, project_name: e.target.value })} />
           <Input id="t-module" label="트리 안 모듈 파일 이름 (확장자 제외)" maxLength={64} value={form.module_name} onChange={(e) => setForm({ ...form, module_name: e.target.value })} />
           <Check id="t-win" label="Windows 전용 (TLX6.0 에 넣지 않음)" checked={form.windows_only} onChange={(v) => setForm({ ...form, windows_only: v })} />
-          <Check id="t-qc" label="패턴 QC 엔진 패키지에도 넣음" checked={form.qc_package} onChange={(v) => setForm({ ...form, qc_package: v })} />
+          <Check id="t-qc" label={QC_LABEL} checked={form.qc_package} onChange={(v) => setForm({ ...form, qc_package: v })} />
+          <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>{NEW_ENGINE_QC_NOTE}</span>
           {!formValid && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>project_id(양의 정수) · 이름 · 모듈 파일을 모두 넣어 주세요.</span>}
           <span style={{ fontSize: theme.fontSize.sm, color: c.warning, lineHeight: 1.6 }}>
             꺼진 채로 추가합니다. 추가한 뒤 '사용'을 켜면 GitLab 에서 패키지 · zip · 모듈 파일을 먼저 받아 보고, 통과해야 켜집니다.
@@ -196,7 +222,24 @@ export function TargetsPage() {
               </span>
             )}
           <Check id="e-win" label="Windows 전용 (TLX6.0 에 넣지 않음)" checked={editForm.windows_only} onChange={(v) => setEditForm({ ...editForm, windows_only: v })} />
-          <Check id="e-qc" label="패턴 QC 엔진 패키지에도 넣음" checked={editForm.qc_package} onChange={(v) => setEditForm({ ...editForm, qc_package: v })} />
+          <Check
+            id="e-qc"
+            label={QC_LABEL}
+            checked={editForm.qc_package}
+            disabled={!!editing?.qc_lock}
+            onChange={(v) => setEditForm({ ...editForm, qc_package: v })}
+          />
+          {editing && (
+            <span
+              style={{
+                fontSize: theme.fontSize.sm,
+                lineHeight: 1.6,
+                color: !editing.qc_lock && editForm.qc_package !== editing.qc_package ? c.warning : c.textMuted,
+              }}
+            >
+              {editing.qc_note}
+            </span>
+          )}
         </div>
       </ConfirmModal>
 

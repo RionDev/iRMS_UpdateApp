@@ -75,6 +75,10 @@ export interface TargetItem {
   enabled: boolean;
   /** READY 시그널 수 — 끄면 ENGINE_UNKNOWN 으로 실패할 건수 */
   ready_count: number;
+  /** QC 패키지 잠금 — on(1 고정) · off(0 고정) · null(자유). BE qc_rules.py */
+  qc_lock: "on" | "off" | null;
+  /** QC 패키지 안내 */
+  qc_note: string;
 }
 
 /** 새 대상은 늘 꺼진 채로 들어간다 — 켜기는 GitLab 확인을 거친 updateTarget 으로만 */

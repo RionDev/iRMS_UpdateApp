@@ -12,7 +12,7 @@ export function isCliRequest(requestedBy: string | null): boolean {
 
 /** 요청 목록의 요청자 칸 */
 export function requesterLabel(requestedBy: string | null): string {
-  if (isCliRequest(requestedBy)) return "156 직접 빌드";
+  if (isCliRequest(requestedBy)) return "서버 수동 빌드";
   return requestedBy ?? "-";
 }
 
@@ -23,7 +23,7 @@ export function logCause(
   if (l.trigger === 2) return l.signal_project_name ? `시그널 ${l.signal_project_name} ${l.signal_tag}` : `시그널 #${l.signal_id ?? "-"}`;
   if (l.trigger === 3) {
     if (!l.request_id) return "156 에서 직접 배포";
-    if (isCliRequest(l.request_requested_by)) return `156 에서 직접 빌드 #${l.request_id}`;
+    if (isCliRequest(l.request_requested_by)) return `서버 수동 빌드 #${l.request_id}`;
     return `웹 수동 요청 #${l.request_id}${l.request_requested_by ? ` · ${l.request_requested_by}` : ""}`;
   }
   return "정기 배포";
