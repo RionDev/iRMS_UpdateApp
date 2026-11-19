@@ -6,6 +6,7 @@ import { useThemeStore } from "@common/stores/themeStore";
 import { useCallback, useState } from "react";
 import { Chips } from "../components/Chips";
 import { PagedTable } from "../components/PagedTable";
+import { useLoadError } from "../hooks/useLoadError";
 import { PageShell } from "../components/PageShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { LOG_RESULT, LOG_TRIGGER } from "../constants";
@@ -94,9 +95,11 @@ export function LogsPage() {
   const [filters, setFilters] = useState<LogFilters>({});
   const [selected, setSelected] = useState<LogItem | null>(null);
   const filterKey = JSON.stringify(filters);
+  const { error: loadError, track } = useLoadError();
 
   const fetcher = useCallback(
-    (cursor: string | undefined, snap: number | undefined, size: number) => listLogs(filters, cursor, snap, size),
+    (cursor: string | undefined, snap: number | undefined, size: number) =>
+      track(listLogs(filters, cursor, snap, size)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey],
   );
@@ -153,6 +156,7 @@ export function LogsPage() {
         rowKey={(l) => l.id}
         onRowClick={setSelected}
         empty="배포 기록이 없습니다."
+        error={loadError}
       />
       <Drawer isOpen={selected !== null} onClose={() => setSelected(null)} width="520px">
         {selected && <LogDetail log={selected} />}

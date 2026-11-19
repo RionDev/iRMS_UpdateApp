@@ -7,10 +7,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { PagedTable, staticNav } from "../components/PagedTable";
 import { PageShell } from "../components/PageShell";
+import { useLoadError } from "../hooks/useLoadError";
 import { QA_PICKUP } from "../constants";
 import { UPDATE_APP, UpdateFeature } from "../features";
 import { createSchedule, deleteSchedule, listSchedules, updateSchedule } from "../services/updateService";
 import type { ScheduleItem } from "../types/deploy";
+import { InputError } from "../utils/error";
 import { scheduleWarnings } from "../utils/schedule";
 
 type Editing = { id: number | null; time: string };
@@ -25,16 +27,18 @@ export function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<ScheduleItem | null>(null);
+  const { error: loadError, track } = useLoadError();
 
   const load = useCallback(() => {
     setLoading(true);
-    listSchedules()
+    track(listSchedules())
       .then((p) => {
         setItems(p.items);
         setDeployedAt(p.today_schedule_deployed_at);
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [track]);
   useEffect(load, [load]);
 
   const small = { height: "28px", padding: "0 10px", fontSize: theme.fontSize.sm };
@@ -80,7 +84,7 @@ export function SchedulePage() {
           </Button>
         )}
       </div>
-      <PagedTable nav={staticNav(items, loading)} columns={columns} rowKey={(s) => s.id} empty="배포 시각이 없습니다." />
+      <PagedTable nav={staticNav(items, loading)} columns={columns} rowKey={(s) => s.id} empty="배포 시각이 없습니다." error={loadError} />
 
       <ConfirmModal
         isOpen={editing !== null}
@@ -88,7 +92,8 @@ export function SchedulePage() {
         confirmLabel="저장"
         onClose={() => setEditing(null)}
         onConfirm={async () => {
-          if (!editing || !timeOk) throw new Error("invalid");
+          if (!editing) return;
+          if (!timeOk) throw new InputError("시각을 HH:MM (00:00~23:59) 으로 넣어 주세요");
           if (editing.id) await updateSchedule(editing.id, editing.time);
           else await createSchedule(editing.time);
           load();

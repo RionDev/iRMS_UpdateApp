@@ -3,10 +3,11 @@ import { Button } from "@common/components/Button";
 import { useFeatures } from "@common/hooks/useFeatures";
 import { usePagedNav } from "@common/hooks/usePagedNav";
 import { useThemeStore } from "@common/stores/themeStore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { PagedTable } from "../components/PagedTable";
 import { PageShell } from "../components/PageShell";
+import { useLoadError } from "../hooks/useLoadError";
 import { StatusBadge } from "../components/StatusBadge";
 import { REQUEST_POLL_MS, REQUEST_STATUS } from "../constants";
 import { UPDATE_APP, UpdateFeature } from "../features";
@@ -27,24 +28,40 @@ export function RequestsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const { error: loadError, track } = useLoadError();
 
   const fetcher = useCallback(
     async (cursor: string | undefined, snap: number | undefined, size: number) => {
-      const page = await listRequests(cursor, snap, size);
+      const page = await track(listRequests(cursor, snap, size));
       setActiveId(page.active_id);
       return page;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reloadKey],
+    [reloadKey, track],
   );
   const nav = usePagedNav<PatternRequestItem>({ fetcher, size: PAGE_SIZE, deps: [reloadKey] });
 
-  // 진행 중인 요청이 있는 동안만 15초마다 다시 읽는다
+  // 진행 중인 요청 번호만 다시 읽는다 — 보고 있는 목록 페이지는 그대로 둔다
+  const refreshActive = useCallback(
+    () =>
+      listRequests(undefined, undefined, 1)
+        .then((p) => setActiveId(p.active_id))
+        .catch(() => {}),
+    [],
+  );
+
+  // 진행 중인 요청이 있는 동안만 15초마다 다시 읽는다.
+  // 1페이지(최근 요청)를 보고 있으면 목록째, 다른 페이지를 보고 있으면 그 페이지를 두고 진행 상태만.
+  const pageRef = useRef(nav.page);
+  pageRef.current = nav.page;
   useEffect(() => {
     if (activeId === null) return;
-    const t = window.setInterval(() => setReloadKey((k) => k + 1), REQUEST_POLL_MS);
+    const t = window.setInterval(() => {
+      if (pageRef.current === 1) setReloadKey((k) => k + 1);
+      else void refreshActive();
+    }, REQUEST_POLL_MS);
     return () => window.clearInterval(t);
-  }, [activeId]);
+  }, [activeId, refreshActive]);
 
   const columns: TableColumn<PatternRequestItem>[] = [
     { key: "id", label: "#" },
@@ -122,14 +139,20 @@ export function RequestsPage() {
           </span>
         )}
       </div>
-      <PagedTable nav={nav} columns={columns} rowKey={(r) => r.id} empty="요청이 없습니다." />
+      <PagedTable nav={nav} columns={columns} rowKey={(r) => r.id} empty="요청이 없습니다." error={loadError} />
       <ConfirmModal
         isOpen={confirmOpen}
         title="패턴 빌드 · 배포 요청"
         confirmLabel="요청"
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
-          await createRequest(force);
+          try {
+            await createRequest(force);
+          } catch (e) {
+            // 그 사이 다른 사람이 요청했으면(409) 진행 중 번호를 다시 읽어 버튼을 막는다
+            void refreshActive();
+            throw e;
+          }
           setForce(false);
           setReloadKey((k) => k + 1);
         }}

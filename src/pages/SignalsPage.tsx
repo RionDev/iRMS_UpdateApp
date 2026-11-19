@@ -5,6 +5,7 @@ import { useThemeStore } from "@common/stores/themeStore";
 import { useCallback, useEffect, useState } from "react";
 import { Chips } from "../components/Chips";
 import { PagedTable } from "../components/PagedTable";
+import { useLoadError } from "../hooks/useLoadError";
 import { PageShell } from "../components/PageShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { FIRST_BADGE, FIRST_TITLE, SIGNAL_STATUS } from "../constants";
@@ -98,6 +99,7 @@ export function SignalsPage() {
   const [filters, setFilters] = useState<SignalFilters>({});
   const [reloadKey, setReloadKey] = useState(0);
   const filterKey = JSON.stringify(filters);
+  const { error: loadError, track } = useLoadError();
 
   useEffect(() => {
     listCurrent()
@@ -106,7 +108,8 @@ export function SignalsPage() {
   }, [reloadKey]);
 
   const fetcher = useCallback(
-    (cursor: string | undefined, snap: number | undefined, size: number) => listSignals(filters, cursor, snap, size),
+    (cursor: string | undefined, snap: number | undefined, size: number) =>
+      track(listSignals(filters, cursor, snap, size)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey, reloadKey],
   );
@@ -189,7 +192,7 @@ export function SignalsPage() {
           새로고침
         </button>
       </div>
-      <PagedTable nav={nav} columns={columns} rowKey={(s) => s.id} empty="시그널이 없습니다." />
+      <PagedTable nav={nav} columns={columns} rowKey={(s) => s.id} empty="시그널이 없습니다." error={loadError} />
       <p style={{ margin: 0, fontSize: theme.fontSize.sm, color: theme.colors.textMuted, flexShrink: 0 }}>
         엔진 배포는 GitLab(master 머지 → CI · qc job) → autoflow → postmark 가 합니다. 이 화면은 상태만 보여 줍니다.
         다시 내보내려면 GitLab 에서 새로 릴리스하세요.

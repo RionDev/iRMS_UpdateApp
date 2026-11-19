@@ -7,9 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { PagedTable, staticNav } from "../components/PagedTable";
 import { PageShell } from "../components/PageShell";
+import { useLoadError } from "../hooks/useLoadError";
 import { UPDATE_APP, UpdateFeature } from "../features";
 import { createTarget, listTargets, updateTarget } from "../services/updateService";
 import type { TargetCreate, TargetItem } from "../types/deploy";
+import { InputError } from "../utils/error";
 
 const EMPTY_FORM = { project_id: "", project_name: "", module_name: "", windows_only: false, qc_package: true };
 
@@ -34,13 +36,15 @@ export function TargetsPage() {
   const [editing, setEditing] = useState<TargetItem | null>(null);
   const [editForm, setEditForm] = useState({ module_name: "", windows_only: false, qc_package: true });
   const [toggling, setToggling] = useState<TargetItem | null>(null);
+  const { error: loadError, track } = useLoadError();
 
   const load = useCallback(() => {
     setLoading(true);
-    listTargets()
+    track(listTargets())
       .then((p) => setItems(p.items))
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [track]);
   useEffect(load, [load]);
 
   const yes = (v: boolean) => (v ? "✓" : "-");
@@ -109,6 +113,7 @@ export function TargetsPage() {
         rowKey={(t) => t.project_id}
         onRowClick={canEdit ? openEdit : undefined}
         empty="배포 대상이 없습니다."
+        error={loadError}
       />
 
       <ConfirmModal
@@ -120,7 +125,7 @@ export function TargetsPage() {
           setForm(EMPTY_FORM);
         }}
         onConfirm={async () => {
-          if (!formValid) throw new Error("invalid");
+          if (!formValid) throw new InputError("project_id(양의 정수) · 이름 · 모듈 파일을 모두 넣어 주세요");
           const body: TargetCreate = {
             project_id: Number(form.project_id),
             project_name: form.project_name.trim(),
@@ -151,6 +156,7 @@ export function TargetsPage() {
         onClose={() => setEditing(null)}
         onConfirm={async () => {
           if (!editing) return;
+          if (!editForm.module_name.trim()) throw new InputError("모듈 파일 이름을 넣어 주세요");
           await updateTarget(editing.project_id, {
             module_name: editForm.module_name.trim(),
             windows_only: editForm.windows_only,
