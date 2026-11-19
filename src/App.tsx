@@ -22,6 +22,7 @@ export function App() {
       <Route path="/logs" element={<RequireAuth>{updateRoutes.logs}</RequireAuth>} />
       <Route path="/targets" element={<RequireAuth>{updateRoutes.targets}</RequireAuth>} />
       <Route path="/schedule" element={<RequireAuth>{updateRoutes.schedule}</RequireAuth>} />
+      <Route path="/policies" element={<RequireAuth>{updateRoutes.policies}</RequireAuth>} />
       <Route path="*" element={<Navigate to="/status" replace />} />
     </Routes>
   );

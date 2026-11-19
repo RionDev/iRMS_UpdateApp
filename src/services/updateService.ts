@@ -2,6 +2,8 @@ import apiClient from "@common/services/apiClient";
 import type { Page } from "@common/types/pagination";
 import type {
   CurrentItem,
+  DaemonPolicies,
+  PolicyEdits,
   LogFilters,
   LogItem,
   PatternRequestItem,
@@ -84,4 +86,12 @@ export async function updateSchedule(id: number, time: string): Promise<Schedule
 
 export async function deleteSchedule(id: number): Promise<void> {
   await apiClient.delete(`${BASE}/schedules/${id}`);
+}
+
+export async function listDaemonPolicies(): Promise<DaemonPolicies> {
+  return (await apiClient.get("/api/update/daemon-policies")).data;
+}
+
+export async function updateDaemonPolicies(changes: PolicyEdits): Promise<DaemonPolicies> {
+  return (await apiClient.put("/api/update/daemon-policies", { changes })).data;
 }

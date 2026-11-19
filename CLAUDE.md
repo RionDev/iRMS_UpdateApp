@@ -18,6 +18,8 @@
 - 배포 현황은 한 화면 두 칸(`pages/StatusPage` = `panels/EnginePanel` + `panels/PatternPanel`). 칸이 좁아 문제가 되면 화면을 나눈다
 - 배포 대상 끄기 · module_name 변경 · 배포 시각 변경은 postmark 가 바로 반영하므로 확인 모달에 영향(READY 신호 실패, 오늘 한 번 더 배포)을 적는다
 
+- 데몬 정책 화면(`pages/PoliciesPage`)은 BE 가 주는 키 명세(범위 · 정규식 · 읽기 전용 이유 · 짝)로 칸을 그리고 `utils/policy.ts` 로 먼저 검사한다. 규칙의 정본은 BE `policy_spec.py` — FE 에 키 목록을 따로 두지 않는다
+
 ## 앱·기능 권한 (필수)
 
 - 페이지 진입은 `useAppAccess("/update")`, **API 를 부르는 메뉴·버튼은 모두 `useFeatures("/update").can(<기능 키>)` 로 숨긴다**

@@ -108,3 +108,46 @@ export interface LogFilters {
   date_from?: string;
   date_to?: string;
 }
+
+// ──── 데몬 정책 (photon-db.policy_daemon) ────
+
+export type PolicyKind = "uint" | "local_path" | "unc_path" | "ftp_path" | "ipv4" | "semver" | "int_list" | "word_list";
+
+export interface PolicyKey {
+  name: string;
+  kind: PolicyKind;
+  label: string;
+  /** 뜻 · 반영 시점 · 틀리면 생기는 일 */
+  help: string;
+  min: number | null;
+  max: number | null;
+  /** 바꿀 수 없는 이유 (있으면 읽기 전용) */
+  readonly: string | null;
+  pattern: string | null;
+  max_length: number | null;
+}
+
+export interface DaemonPolicy {
+  service: string;
+  host: string;
+  policy_opt: string | null;
+  updated_date: string | null;
+  desc: string | null;
+  values: Record<string, string>;
+  /** 있으면 그 데몬은 웹에서 못 고침 */
+  parse_errors: string[];
+  keys: PolicyKey[];
+}
+
+export interface PolicyRef {
+  service: string;
+  key: string;
+}
+
+export interface DaemonPolicies {
+  services: DaemonPolicy[];
+  pairs: { a: PolicyRef; b: PolicyRef }[];
+}
+
+/** { 서비스: { 키: 새 값 } } */
+export type PolicyEdits = Record<string, Record<string, string>>;

@@ -45,7 +45,7 @@ export function ConfirmModal({
     <Modal isOpen={isOpen} onClose={close} title={title}>
       <div style={{ fontSize: theme.fontSize.base, lineHeight: 1.7, color: theme.colors.text }}>{children}</div>
       {error && (
-        <p role="alert" style={{ color: theme.colors.danger, fontSize: theme.fontSize.sm, margin: "12px 0 0" }}>
+        <p role="alert" style={{ color: theme.colors.danger, fontSize: theme.fontSize.sm, margin: "12px 0 0", whiteSpace: "pre-line" }}>
           {error}
         </p>
       )}

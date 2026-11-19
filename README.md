@@ -12,6 +12,7 @@ API 는 BE `update_service`(`/api/update/*`).
 | 배포 기록 | `/update/logs` | postmark 배포 기록(정시 · 시그널 · 수동, 결과, 사유). 행을 누르면 들어간 입력(inputs)을 key/value 로 | - |
 | 배포 대상 | `/update/targets` | 엔진류 배포 대상 추가 · 수정 · 켜고 끄기. 끌 때 READY 신호 실패 경고 | `settings` |
 | 배포 시각 | `/update/schedule` | 패턴류 정기 배포 시각 추가 · 수정 · 삭제. QA 수집(12:00) 뒤 · 오늘 한 번 더 배포 경고 | `settings` |
+| 데몬 정책 | `/update/policies` | photon-db `policy_daemon` 데몬 6개(156: ptnbuild · postmark · bdupdate / 250: regimal · sigext · clusmal) 키별 편집. 범위 · 형식 · 짝 값을 입력 칸과 BE 에서 막고, 코드 상수와 짝인 값(🔒)은 보기만. 바뀐 값 확인 창 뒤 저장 | `policy_daemon` |
 
 메뉴는 `view` 권한으로 보인다. 처음 권한: view · pattern_request Member 이상, settings Lead 이상.
 
@@ -20,7 +21,7 @@ API 는 BE `update_service`(`/api/update/*`).
 ```bash
 npm install
 npm run dev
-npm test        # vitest (utils: inputs 풀이 · 배포 시각 경고 · 오류 문구)
+npm test        # vitest (utils: inputs 풀이 · 배포 시각 경고 · 오류 문구 · 데몬 정책 검사)
 ```
 
 기본 포트: 3009, 경로: `/update/`

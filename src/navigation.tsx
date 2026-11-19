@@ -36,7 +36,19 @@ const scheduleIcon = svg([
   <line key="d" x1="3" y1="10" x2="21" y2="10" />,
 ]);
 
-/** 왼쪽 메뉴. 네 화면 모두 조회(view) 권한으로 보이고, 편집 버튼만 각 화면에서 따로 숨긴다. */
+const policyIcon = svg([
+  <line key="a" x1="4" y1="21" x2="4" y2="14" />,
+  <line key="b" x1="4" y1="10" x2="4" y2="3" />,
+  <line key="c" x1="12" y1="21" x2="12" y2="12" />,
+  <line key="d" x1="12" y1="8" x2="12" y2="3" />,
+  <line key="e" x1="20" y1="21" x2="20" y2="16" />,
+  <line key="f" x1="20" y1="12" x2="20" y2="3" />,
+  <line key="g" x1="1" y1="14" x2="7" y2="14" />,
+  <line key="h" x1="9" y1="8" x2="15" y2="8" />,
+  <line key="i" x1="17" y1="16" x2="23" y2="16" />,
+]);
+
+/** 왼쪽 메뉴. 모든 화면 조회(view) 권한으로 보이고, 편집 버튼만 각 화면에서 따로 숨긴다. */
 export function useUpdateNavItems(): SidebarItem[] {
   const { can } = useFeatures(UPDATE_APP);
   return useMemo(() => {
@@ -56,6 +68,7 @@ export function useUpdateNavItems(): SidebarItem[] {
         children: [
           { label: "배포 대상", to: "/targets", icon: targetIcon },
           { label: "배포 시각", to: "/schedule", icon: scheduleIcon },
+          { label: "데몬 정책", to: "/policies", icon: policyIcon },
         ],
       },
     ];
