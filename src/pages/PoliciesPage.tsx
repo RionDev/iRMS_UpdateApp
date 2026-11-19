@@ -6,8 +6,9 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { PageShell } from "../components/PageShell";
 import { UPDATE_APP, UpdateFeature } from "../features";
 import { useLoadError } from "../hooks/useLoadError";
-import { listDaemonPolicies, updateDaemonPolicies } from "../services/updateService";
+import { getSchedule, listDaemonPolicies, updateDaemonPolicies } from "../services/updateService";
 import type { DaemonPolicies, DaemonPolicy, PolicyEdits, PolicyKey } from "../types/deploy";
+import { deployTimeWarnings } from "../utils/deployTime";
 import { InputError } from "../utils/error";
 import { changedOnly, editErrors, editList } from "../utils/policy";
 
@@ -19,12 +20,15 @@ function DaemonCard({
   d,
   edits,
   errors,
+  warnings,
   canEdit,
   onEdit,
 }: {
   d: DaemonPolicy;
   edits: PolicyEdits;
   errors: Record<string, string>;
+  /** 막지는 않는 경고 (서비스.키 → 문구들) */
+  warnings: Record<string, string[]>;
   canEdit: boolean;
   onEdit: (service: string, key: string, value: string) => void;
 }) {
@@ -111,6 +115,12 @@ function DaemonCard({
                     {err}
                   </span>
                 )}
+                {!err &&
+                  warnings[id]?.map((w) => (
+                    <span key={w} style={{ fontSize: theme.fontSize.sm, color: c.warning, lineHeight: 1.5 }}>
+                      ⚠ {w}
+                    </span>
+                  ))}
                 <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted, lineHeight: 1.5 }}>
                   {range && <b style={{ fontWeight: 600 }}>{range} · </b>}
                   {k.readonly ? `읽기 전용 — ${k.readonly}` : k.help}
@@ -133,6 +143,7 @@ export function PoliciesPage() {
   const [edits, setEdits] = useState<PolicyEdits>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { error: loadError, track } = useLoadError();
+  const [todayDeployedAt, setTodayDeployedAt] = useState<string | null>(null);
 
   const load = useCallback(() => {
     track(listDaemonPolicies())
@@ -143,10 +154,33 @@ export function PoliciesPage() {
       .catch(() => {});
   }, [track]);
   useEffect(load, [load]);
+  useEffect(() => {
+    getSchedule()
+      .then((s) => setTodayDeployedAt(s.today_schedule_deployed_at))
+      .catch(() => {});
+  }, [data]);
 
   const errors = useMemo(() => (data ? editErrors(data, edits) : {}), [data, edits]);
   const changes = useMemo(() => (data ? editList(data, edits) : []), [data, edits]);
   const hasErrors = Object.keys(errors).length > 0;
+
+  // 정기 배포 시각(NpPostmark.DEPLOY_TIME) 경고 — QA 수집 뒤 · 빌드 시각과 2시간 미만 · 오늘 한 번 더 배포
+  const warnings = useMemo((): Record<string, string[]> => {
+    if (!data) return {};
+    const val = (svc: string, key: string) =>
+      edits[svc]?.[key] ?? data.services.find((x) => x.service === svc)?.values[key];
+    const time = val("NpPostmark", "DEPLOY_TIME");
+    const build = val("NpPtnBuild", "BUILD_HOUR");
+    if (time === undefined) return {};
+    const list = deployTimeWarnings({
+      time,
+      buildHour: build !== undefined && /^\+?[0-9]+$/.test(build) ? Number(build) : null,
+      todayDeployedAt,
+      now: new Date(),
+      timeChanged: changes.some((ch) => ch.service === "NpPostmark" && ch.key === "DEPLOY_TIME"),
+    });
+    return list.length ? { "NpPostmark.DEPLOY_TIME": list } : {};
+  }, [data, edits, changes, todayDeployedAt]);
 
   const onEdit = (service: string, key: string, value: string) =>
     setEdits((e) => ({ ...e, [service]: { ...e[service], [key]: value } }));
@@ -168,11 +202,11 @@ export function PoliciesPage() {
         }}
       >
         <span style={{ flex: 1, minWidth: "320px", fontSize: theme.fontSize.base, color: c.text, lineHeight: 1.6 }}>
-          photon-db <span style={{ fontFamily: "monospace" }}>policy_daemon</span> — 데몬 6개가 약 1시간마다 다시 읽습니다.
+          photon-db <span style={{ fontFamily: "monospace" }}>policy_daemon</span> — 배포 데몬 3개(156)가 약 1시간마다 다시 읽습니다.
           <br />
           <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>
             데몬은 값을 거의 검사하지 않고 틀린 값은 다음 재시작 때 기동 실패로 드러나므로, 데몬을 멈추거나 데이터를 지울 수
-            있는 값은 저장하지 않습니다. 🔒 는 다른 데몬의 코드 상수와 짝이라 바꿀 수 없는 값입니다.
+            있는 값은 저장하지 않습니다. 🔒 는 다른 데몬의 코드 상수와 같아야 해서 바꿀 수 없는 값입니다.
           </span>
         </span>
         {canEdit && data && (
@@ -197,7 +231,7 @@ export function PoliciesPage() {
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))", gap: "16px", alignItems: "start" }}>
           {data.services.map((d) => (
-            <DaemonCard key={d.service} d={d} edits={edits} errors={errors} canEdit={canEdit} onEdit={onEdit} />
+            <DaemonCard key={d.service} d={d} edits={edits} errors={errors} warnings={warnings} canEdit={canEdit} onEdit={onEdit} />
           ))}
         </div>
       )}
@@ -221,6 +255,13 @@ export function PoliciesPage() {
               {ch.service}.{ch.key}: {ch.from} → <b>{ch.to}</b>
             </div>
           ))}
+          {Object.values(warnings)
+            .flat()
+            .map((w) => (
+              <p key={w} style={{ margin: "8px 0 0", color: c.warning, fontSize: theme.fontSize.sm }}>
+                ⚠ {w}
+              </p>
+            ))}
           <p style={{ margin: "8px 0 0", color: c.warning, fontSize: theme.fontSize.sm }}>
             데몬이 약 1시간 안에 다시 읽어 반영합니다. 보관 일수는 날짜가 바뀔 때, 빌드 · 업데이트 시각은 지금 시각과 같으면 바로
             돕니다.

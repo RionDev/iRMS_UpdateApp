@@ -9,9 +9,9 @@ import { PagedTable, staticNav } from "../components/PagedTable";
 import { PageShell } from "../components/PageShell";
 import { useLoadError } from "../hooks/useLoadError";
 import { UPDATE_APP, UpdateFeature } from "../features";
-import { createTarget, listTargets, updateTarget } from "../services/updateService";
-import type { TargetCreate, TargetItem } from "../types/deploy";
-import { InputError } from "../utils/error";
+import { checkTarget, createTarget, listTargets, updateTarget } from "../services/updateService";
+import type { TargetCheck, TargetCreate, TargetItem } from "../types/deploy";
+import { errorMessage, InputError } from "../utils/error";
 
 const EMPTY_FORM = { project_id: "", project_name: "", module_name: "", windows_only: false, qc_package: true };
 
@@ -36,6 +36,12 @@ export function TargetsPage() {
   const [editing, setEditing] = useState<TargetItem | null>(null);
   const [editForm, setEditForm] = useState({ module_name: "", windows_only: false, qc_package: true });
   const [toggling, setToggling] = useState<TargetItem | null>(null);
+  // 켜기 전 GitLab 확인 결과 — postmark 가 FIRST · 배포 때 받을 것과 같은 규칙(BE target_check)
+  const [check, setCheck] = useState<{ result: TargetCheck | null; error: string | null; loading: boolean }>({
+    result: null,
+    error: null,
+    loading: false,
+  });
   const { error: loadError, track } = useLoadError();
 
   const load = useCallback(() => {
@@ -75,14 +81,24 @@ export function TargetsPage() {
     { key: "ready_count", label: "READY 시그널", render: (t) => t.ready_count || "-" },
   ];
 
-  // 끄기 창의 READY 건수는 창을 여는 순간 다시 읽는다 — 화면을 연 뒤 autoflow 가 남긴 신호도 경고에 넣기 위해
+  // 끄기 창의 READY 건수는 창을 여는 순간 다시 읽는다 — 화면을 연 뒤 autoflow 가 남긴 신호도 경고에 넣기 위해.
+  // 켜기 창은 열자마자 GitLab 확인을 돌려 결과를 보여 주고, 통과 못 하면 켜기 버튼을 막는다(서버도 다시 확인한다).
   const openToggle = async (t: TargetItem) => {
+    let cur = t;
     try {
       const fresh = (await listTargets()).items;
       setItems(fresh);
-      setToggling(fresh.find((x) => x.project_id === t.project_id) ?? t);
+      cur = fresh.find((x) => x.project_id === t.project_id) ?? t;
     } catch {
-      setToggling(t);
+      /* 목록을 못 읽어도 창은 연다 */
+    }
+    setToggling(cur);
+    if (cur.enabled) return;
+    setCheck({ result: null, error: null, loading: true });
+    try {
+      setCheck({ result: await checkTarget(cur.project_id), error: null, loading: false });
+    } catch (e) {
+      setCheck({ result: null, error: errorMessage(e), loading: false });
     }
   };
 
@@ -132,7 +148,6 @@ export function TargetsPage() {
             module_name: form.module_name.trim(),
             windows_only: form.windows_only,
             qc_package: form.qc_package,
-            enabled: true,
           };
           await createTarget(body);
           setForm(EMPTY_FORM);
@@ -146,6 +161,10 @@ export function TargetsPage() {
           <Check id="t-win" label="Windows 전용 (TLX6.0 에 넣지 않음)" checked={form.windows_only} onChange={(v) => setForm({ ...form, windows_only: v })} />
           <Check id="t-qc" label="패턴 QC 엔진 패키지에도 넣음" checked={form.qc_package} onChange={(v) => setForm({ ...form, qc_package: v })} />
           {!formValid && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>project_id(양의 정수) · 이름 · 모듈 파일을 모두 넣어 주세요.</span>}
+          <span style={{ fontSize: theme.fontSize.sm, color: c.warning, lineHeight: 1.6 }}>
+            꺼진 채로 추가합니다. 추가한 뒤 '사용'을 켜면 GitLab 에서 패키지 · zip · 모듈 파일을 먼저 받아 보고, 통과해야 켜집니다.
+            project_id · 이름은 추가한 뒤 바꿀 수 없습니다.
+          </span>
         </div>
       </ConfirmModal>
 
@@ -170,6 +189,12 @@ export function TargetsPage() {
           {editing && editForm.module_name.trim() !== editing.module_name && (
             <span style={{ color: c.warning, fontSize: theme.fontSize.sm }}>다음 배포부터 트리 안 파일 이름이 바뀝니다.</span>
           )}
+          {editing?.enabled &&
+            (editForm.module_name.trim() !== editing.module_name || editForm.windows_only !== editing.windows_only) && (
+              <span style={{ color: c.textMuted, fontSize: theme.fontSize.sm }}>
+                켜진 대상이라 저장할 때 GitLab 에서 zip · 모듈 파일을 먼저 받아 봅니다. 없으면 저장하지 않습니다(틀리면 postmark 배포 전체가 멈춤).
+              </span>
+            )}
           <Check id="e-win" label="Windows 전용 (TLX6.0 에 넣지 않음)" checked={editForm.windows_only} onChange={(v) => setEditForm({ ...editForm, windows_only: v })} />
           <Check id="e-qc" label="패턴 QC 엔진 패키지에도 넣음" checked={editForm.qc_package} onChange={(v) => setEditForm({ ...editForm, qc_package: v })} />
         </div>
@@ -179,6 +204,7 @@ export function TargetsPage() {
         isOpen={toggling !== null}
         title={toggling ? `${toggling.project_name} ${toggling.enabled ? "끄기" : "켜기"}` : ""}
         confirmLabel={toggling?.enabled ? "끄기" : "켜기"}
+        confirmDisabled={!toggling?.enabled && !check.result?.ok}
         onClose={() => setToggling(null)}
         onConfirm={async () => {
           if (!toggling) return;
@@ -195,7 +221,33 @@ export function TargetsPage() {
             </p>
           </>
         ) : (
-          "켜면 다음 릴리스부터 autoflow 신호를 남기고, 다음 배포 트리에 이 엔진을 넣습니다."
+          <>
+            켜면 다음 배포 트리에 이 엔진을 넣고, 다음 릴리스부터 autoflow 신호를 남깁니다.
+            <div role="status" style={{ marginTop: "10px", fontSize: theme.fontSize.sm, lineHeight: 1.7 }}>
+              {check.loading && <span style={{ color: c.textMuted }}>GitLab 확인 중... (zip 을 받아 봅니다)</span>}
+              {check.error && <span style={{ color: c.danger, whiteSpace: "pre-line" }}>{check.error}</span>}
+              {check.result && (
+                <>
+                  <div>
+                    배포할 버전 <b style={{ fontFamily: "monospace" }}>{check.result.tag ?? "-"}</b>
+                    {check.result.first
+                      ? " — 배포 기록이 없어 GitLab 에 가장 최근 올라온 패키지를 사람 확인 없이 FIRST 로 배포합니다. 켠 뒤 처음 도는 배포(정기 · 수동 · 다른 엔진 신호 어느 것이든)에 섞여 나갑니다."
+                      : " — 이 엔진의 현재 배포 태그"}
+                  </div>
+                  {check.result.ok ? (
+                    <div style={{ color: c.success }}>✓ GitLab 패키지 · zip · 모듈 파일 확인</div>
+                  ) : (
+                    <div style={{ color: c.danger }}>
+                      켜면 postmark 배포 전체가 멈춥니다 — 먼저 고쳐 주세요.
+                      {check.result.problems.map((p) => (
+                        <div key={p}>· {p}</div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </>
         )}
       </ConfirmModal>
     </PageShell>

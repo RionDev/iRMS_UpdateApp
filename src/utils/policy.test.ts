@@ -10,9 +10,9 @@ const path: PolicyKey = {
   name: "WHITE_DIR", kind: "local_path", label: "", help: "", min: null, max: null, readonly: null,
   pattern: "^[A-Za-z]:\\\\[^\\s=/]*[^\\\\\\s=/]$", max_length: 200,
 };
-const tag: PolicyKey = {
-  name: "PHOTON_SCANNER_TAG", kind: "semver", label: "", help: "", min: null, max: null, readonly: null,
-  pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$", max_length: 32,
+const deployTime: PolicyKey = {
+  name: "DEPLOY_TIME", kind: "hhmm", label: "", help: "", min: null, max: null, readonly: null,
+  pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$", max_length: 5,
 };
 
 describe("checkPolicyValue — 서버와 같은 규칙으로 입력 칸에서 먼저 막는다", () => {
@@ -33,45 +33,37 @@ describe("checkPolicyValue — 서버와 같은 규칙으로 입력 칸에서 �
   it("길이 상한", () => {
     expect(checkPolicyValue(path, "C:\\" + "a".repeat(200))).toBe("200자 이하로 넣어 주세요");
   });
-  it("photon-scanner 태그는 0.0.10 이상", () => {
-    expect(checkPolicyValue(tag, "0.0.10")).toBeNull();
-    expect(checkPolicyValue(tag, "0.1.0")).toBeNull();
-    expect(checkPolicyValue(tag, "0.0.9")).toMatch(/0\.0\.10 이상/);
-    expect(checkPolicyValue(tag, "v0.0.10")).toMatch(/형식/);
+  it("정기 배포 시각은 H:MM · HH:MM (postmark fnParseDeployTime)", () => {
+    expect(checkPolicyValue(deployTime, "11:30")).toBeNull();
+    expect(checkPolicyValue(deployTime, "9:30")).toBeNull();
+    expect(checkPolicyValue(deployTime, "24:00")).toMatch(/HH:MM/);
+    expect(checkPolicyValue(deployTime, "11:3")).toMatch(/HH:MM/);
   });
 });
 
 const policies: DaemonPolicies = {
   services: [
-    { service: "NpRegiMal", host: "", policy_opt: "", updated_date: null, desc: null, parse_errors: [],
-      values: { QUEUE_PATH: "C:\\INCA\\signature", BLACK_RATIO: "50" },
-      keys: [{ ...path, name: "QUEUE_PATH" }, { ...uint(1, 100), name: "BLACK_RATIO" }] },
-    { service: "NpSigExt", host: "", policy_opt: "", updated_date: null, desc: null, parse_errors: [],
-      values: { QUEUE_DIR: "C:\\INCA\\signature", VT_DETECT_RATIO_BLACK: "50" },
-      keys: [{ ...path, name: "QUEUE_DIR" }, { ...uint(1, 100), name: "VT_DETECT_RATIO_BLACK" }] },
-  ],
-  pairs: [
-    { a: { service: "NpRegiMal", key: "QUEUE_PATH" }, b: { service: "NpSigExt", key: "QUEUE_DIR" } },
-    { a: { service: "NpRegiMal", key: "BLACK_RATIO" }, b: { service: "NpSigExt", key: "VT_DETECT_RATIO_BLACK" } },
+    { service: "NpPostmark", host: "", policy_opt: "", updated_date: null, desc: null, parse_errors: [],
+      values: { CHECK_SEC: "30", DEPLOY_TIME: "11:30" },
+      keys: [uint(1, 300), deployTime] },
+    { service: "NpPtnBuild", host: "", policy_opt: "", updated_date: null, desc: null, parse_errors: [],
+      values: { WHITE_DIR: "C:\\INCA\\white" },
+      keys: [path] },
   ],
 };
 
-describe("editErrors — 짝 값은 같이 바꿔야 한다", () => {
-  it("한쪽만 바꾸면 양쪽 칸에 오류", () => {
-    const errs = editErrors(policies, { NpRegiMal: { QUEUE_PATH: "D:\\q" } });
-    expect(errs["NpRegiMal.QUEUE_PATH"]).toMatch(/NpSigExt.QUEUE_DIR/);
-    expect(errs["NpSigExt.QUEUE_DIR"]).toMatch(/NpRegiMal.QUEUE_PATH/);
-  });
-  it("둘 다 같은 값이면 통과, 숫자는 +60 = 60", () => {
-    expect(editErrors(policies, { NpRegiMal: { QUEUE_PATH: "D:\\q" }, NpSigExt: { QUEUE_DIR: "D:\\q" } })).toEqual({});
-    expect(editErrors(policies, { NpRegiMal: { BLACK_RATIO: "+60" }, NpSigExt: { VT_DETECT_RATIO_BLACK: "60" } })).toEqual({});
+describe("editErrors — 칸마다 검사", () => {
+  it("틀린 칸만 오류", () => {
+    const errs = editErrors(policies, { NpPostmark: { CHECK_SEC: "0", DEPLOY_TIME: "9:30" }, NpPtnBuild: { WHITE_DIR: "x" } });
+    expect(Object.keys(errs).sort()).toEqual(["NpPostmark.CHECK_SEC", "NpPtnBuild.WHITE_DIR"]);
   });
 });
 
 describe("editList — 확인 창에 보일 바뀐 값 목록", () => {
-  it("원래 값과 같은 편집은 빼고 '이전 → 새 값'", () => {
+  it("원래 값과 같은 편집(+30 = 30, 9:30 ≠ 11:30, 11:30 = 11:30)은 빼고 '이전 → 새 값'", () => {
     expect(
-      editList(policies, { NpRegiMal: { BLACK_RATIO: "50", QUEUE_PATH: "D:\\q" }, NpSigExt: {} }),
-    ).toEqual([{ service: "NpRegiMal", key: "QUEUE_PATH", from: "C:\\INCA\\signature", to: "D:\\q" }]);
+      editList(policies, { NpPostmark: { CHECK_SEC: "+30", DEPLOY_TIME: "9:30" }, NpPtnBuild: {} }),
+    ).toEqual([{ service: "NpPostmark", key: "DEPLOY_TIME", from: "11:30", to: "9:30" }]);
+    expect(editList(policies, { NpPostmark: { DEPLOY_TIME: "11:30" } })).toEqual([]);
   });
 });

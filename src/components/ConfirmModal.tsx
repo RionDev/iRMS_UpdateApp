@@ -10,6 +10,7 @@ export function ConfirmModal({
   title,
   children,
   confirmLabel = "확인",
+  confirmDisabled = false,
   onConfirm,
   onClose,
 }: {
@@ -17,6 +18,8 @@ export function ConfirmModal({
   title: string;
   children: ReactNode;
   confirmLabel?: string;
+  /** 확인 버튼을 막는다(예: 사전 확인 중 · 통과 못 함) */
+  confirmDisabled?: boolean;
   onConfirm: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -53,7 +56,7 @@ export function ConfirmModal({
         <Button type="button" variant="secondary" onClick={close} disabled={busy}>
           취소
         </Button>
-        <Button type="button" onClick={run} disabled={busy}>
+        <Button type="button" onClick={run} disabled={busy || confirmDisabled}>
           {busy ? "처리 중..." : confirmLabel}
         </Button>
       </div>

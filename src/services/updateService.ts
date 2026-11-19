@@ -9,10 +9,10 @@ import type {
   LogItem,
   PatternRequestItem,
   PatternRequestPage,
-  ScheduleItem,
-  SchedulePage,
+  ScheduleStatus,
   SignalFilters,
   SignalItem,
+  TargetCheck,
   TargetCreate,
   TargetItem,
   TargetUpdate,
@@ -60,13 +60,13 @@ export async function listTargets(): Promise<Page<TargetItem>> {
   return (await apiClient.get<Page<TargetItem>>(`${BASE}/targets`)).data;
 }
 
-export async function listSchedules(): Promise<SchedulePage> {
-  return (await apiClient.get<SchedulePage>(`${BASE}/schedules`)).data;
+export async function getSchedule(): Promise<ScheduleStatus> {
+  return (await apiClient.get<ScheduleStatus>(`${BASE}/schedule`)).data;
 }
 
 // ──── 쓰기 ────
-export async function createRequest(forceBuild: boolean): Promise<PatternRequestItem> {
-  return (await apiClient.post<PatternRequestItem>(`${BASE}/pattern-requests`, { force_build: forceBuild })).data;
+export async function createRequest(): Promise<PatternRequestItem> {
+  return (await apiClient.post<PatternRequestItem>(`${BASE}/pattern-requests`)).data;
 }
 
 export async function createTarget(body: TargetCreate): Promise<TargetItem> {
@@ -77,16 +77,9 @@ export async function updateTarget(projectId: number, body: TargetUpdate): Promi
   return (await apiClient.put<TargetItem>(`${BASE}/targets/${projectId}`, body)).data;
 }
 
-export async function createSchedule(time: string): Promise<ScheduleItem> {
-  return (await apiClient.post<ScheduleItem>(`${BASE}/schedules`, { time })).data;
-}
-
-export async function updateSchedule(id: number, time: string): Promise<ScheduleItem> {
-  return (await apiClient.put<ScheduleItem>(`${BASE}/schedules/${id}`, { time })).data;
-}
-
-export async function deleteSchedule(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/schedules/${id}`);
+/** GitLab 확인만 (바꾸지 않음) */
+export async function checkTarget(projectId: number): Promise<TargetCheck> {
+  return (await apiClient.post<TargetCheck>(`${BASE}/targets/${projectId}/check`)).data;
 }
 
 export async function listDaemonPolicies(): Promise<DaemonPolicies> {

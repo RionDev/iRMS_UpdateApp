@@ -1,4 +1,5 @@
 import type { DaemonPolicies, PolicyEdits, PolicyKey } from "../types/deploy";
+import { normalizeDeployTime } from "./deployTime";
 
 /**
  * 데몬 정책 입력 검사 — BE policy_spec.py 와 같은 규칙. 명세(범위 · 정규식 · 길이)는 BE 응답의 keys 를 그대로 쓴다.
@@ -8,14 +9,9 @@ import type { DaemonPolicies, PolicyEdits, PolicyKey } from "../types/deploy";
 const KIND_HINT: Record<string, string> = {
   local_path: "C:\\폴더 처럼 드라이브부터 쓴 경로(끝 \\ · '/' 없이)",
   unc_path: "\\\\IP\\공유 처럼 UNC 경로(끝 \\ 없이)",
-  ftp_path: "/ 로 시작하고 / 로 끝나는 경로",
   ipv4: "IPv4 주소(예 192.168.100.205)",
-  semver: "a.b.c 형식(예 0.0.10)",
-  int_list: "쉼표로 이은 숫자 목록(예 6,7), 빈 원소 없이",
-  word_list: "쉼표로 이은 영문 키워드(예 steal,banker), 빈 원소 없이",
+  hhmm: "HH:MM 형식(00:00~23:59, 예 11:30)",
 };
-
-const MIN_SCANNER_TAG = [0, 0, 10];
 
 /** 칸 하나 검사. 문제 없으면 null. */
 export function checkPolicyValue(key: PolicyKey, value: string): string | null {
@@ -29,34 +25,22 @@ export function checkPolicyValue(key: PolicyKey, value: string): string | null {
     return null;
   }
   if (key.pattern && !new RegExp(key.pattern).test(value)) {
-    return key.kind === "semver" ? `형식이 맞지 않습니다 — ${KIND_HINT.semver}` : KIND_HINT[key.kind] ?? "형식이 맞지 않습니다";
-  }
-  if (key.kind === "semver") {
-    const v = value.split(".").map(Number);
-    for (let i = 0; i < 3; i++) {
-      if (v[i] !== MIN_SCANNER_TAG[i]) {
-        if (v[i] < MIN_SCANNER_TAG[i]) return "0.0.10 이상이어야 합니다 (미만이면 ptnbuild QC 가 모두 실패)";
-        break;
-      }
-    }
+    return KIND_HINT[key.kind] ?? "형식이 맞지 않습니다";
   }
   return null;
 }
 
 function norm(key: PolicyKey | undefined, value: string): string {
-  return key?.kind === "uint" && /^\+?[0-9]+$/.test(value) ? String(Number(value)) : value;
-}
-
-/** 편집을 반영한 값 (서비스.키) */
-function valueOf(p: DaemonPolicies, edits: PolicyEdits, service: string, key: string): string | undefined {
-  return edits[service]?.[key] ?? p.services.find((s) => s.service === service)?.values[key];
+  if (key?.kind === "uint" && /^\+?[0-9]+$/.test(value)) return String(Number(value));
+  if (key?.kind === "hhmm") return normalizeDeployTime(value) ?? value;
+  return value;
 }
 
 function keyOf(p: DaemonPolicies, service: string, key: string): PolicyKey | undefined {
   return p.services.find((s) => s.service === service)?.keys.find((k) => k.name === key);
 }
 
-/** 편집 전체 검사 → { "서비스.키": 오류 }. 칸 검사 + 짝 값 검사. */
+/** 편집 전체 검사 → { "서비스.키": 오류 }. */
 export function editErrors(p: DaemonPolicies, edits: PolicyEdits): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [service, kv] of Object.entries(edits)) {
@@ -64,15 +48,6 @@ export function editErrors(p: DaemonPolicies, edits: PolicyEdits): Record<string
       const k = keyOf(p, service, key);
       const msg = k ? checkPolicyValue(k, value) : "모르는 키";
       if (msg) out[`${service}.${key}`] = msg;
-    }
-  }
-  for (const { a, b } of p.pairs) {
-    const va = valueOf(p, edits, a.service, a.key);
-    const vb = valueOf(p, edits, b.service, b.key);
-    if (va === undefined || vb === undefined) continue;
-    if (norm(keyOf(p, a.service, a.key), va) !== norm(keyOf(p, b.service, b.key), vb)) {
-      out[`${a.service}.${a.key}`] ??= `${b.service}.${b.key} 와 같아야 합니다 — 같이 바꿔 주세요`;
-      out[`${b.service}.${b.key}`] ??= `${a.service}.${a.key} 와 같아야 합니다 — 같이 바꿔 주세요`;
     }
   }
   return out;

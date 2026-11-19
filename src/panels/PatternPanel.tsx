@@ -11,8 +11,8 @@ import { useLoadError } from "../hooks/useLoadError";
 import { StatusBadge } from "../components/StatusBadge";
 import { REQUEST_POLL_MS, REQUEST_STATUS } from "../constants";
 import { UPDATE_APP, UpdateFeature } from "../features";
-import { createRequest, listRequests, listSchedules } from "../services/updateService";
-import type { PatternRequestItem, SchedulePage } from "../types/deploy";
+import { createRequest, getSchedule, listRequests } from "../services/updateService";
+import type { PatternRequestItem, ScheduleStatus } from "../types/deploy";
 
 const PAGE_SIZE = 20;
 
@@ -25,13 +25,12 @@ export function PatternPanel() {
   const { theme } = useThemeStore();
   const c = theme.colors;
   const { can } = useFeatures(UPDATE_APP);
-  const [force, setForce] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [schedule, setSchedule] = useState<SchedulePage | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleStatus | null>(null);
   useEffect(() => {
-    listSchedules()
+    getSchedule()
       .then(setSchedule)
       .catch(() => setSchedule(null));
   }, [reloadKey]);
@@ -78,11 +77,10 @@ export function PatternPanel() {
       label: "상태",
       render: (r) => (
         <span
-          style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}
+          style={{ display: "inline-flex" }}
           title={`빌드 시작 ${short(r.build_at)} · 배포 대기 ${short(r.ready_at)} · 배포 시작 ${short(r.deploy_at)}${r.runs ? ` · 회차 ${r.runs}` : ""}`}
         >
           <StatusBadge meta={REQUEST_STATUS[r.status]} />
-          {r.force_build && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>force</span>}
         </span>
       ),
     },
@@ -113,34 +111,24 @@ export function PatternPanel() {
       >
         <div style={{ flex: 1, minWidth: "260px", fontSize: theme.fontSize.base, color: c.text, lineHeight: 1.6 }}>
           <b style={{ fontWeight: 600 }}>정기 배포</b>{" "}
-          <span style={{ fontFamily: "monospace" }}>
-            {schedule ? schedule.items.map((s) => s.time).join(" · ") || "-" : "-"}
+          <span style={{ fontFamily: "monospace" }} title="데몬 정책 NpPostmark.DEPLOY_TIME — 이 시각부터 30분 안에 하루 한 번">
+            {schedule?.deploy_time ?? "-"}
           </span>
+          {schedule?.error && <span style={{ color: c.danger, fontSize: theme.fontSize.sm }}> ({schedule.error})</span>}
           <span style={{ color: c.textMuted, fontSize: theme.fontSize.sm }}>
             {" "}
             — 오늘 {schedule?.today_schedule_deployed_at ? `${schedule.today_schedule_deployed_at.slice(11, 16)} 배포함` : "아직 안 함"}
           </span>
           <br />
           <span style={{ color: c.textMuted, fontSize: theme.fontSize.sm }}>
-            그날 바로 낼 패턴은 수동 요청 — ptnbuild 빌드 · QC 를 통과하면 postmark 가 배포합니다.
+            그날 바로 낼 패턴은 수동 요청 — ptnbuild 빌드 · QC 를 통과하면 postmark 가 배포합니다. 전량 예외 청크(EMPTY_CHUNK_FAIL)는
+            웹에서 넘기지 않습니다(156 에서 ptnbuild build --force).
           </span>
         </div>
         {can(UpdateFeature.PATTERN_REQUEST) && (
-          <>
-            <label style={{ display: "inline-flex", gap: "6px", alignItems: "center", fontSize: theme.fontSize.base }}>
-              <input
-                id="force-build"
-                type="checkbox"
-                checked={force}
-                onChange={(e) => setForce(e.target.checked)}
-                disabled={activeId !== null}
-              />
-              전량 예외 청크 승인(force)
-            </label>
-            <Button type="button" onClick={() => setConfirmOpen(true)} disabled={activeId !== null}>
-              빌드 · 배포 요청
-            </Button>
-          </>
+          <Button type="button" onClick={() => setConfirmOpen(true)} disabled={activeId !== null}>
+            빌드 · 배포 요청
+          </Button>
         )}
         {activeId !== null && (
           <span role="status" style={{ width: "100%", fontSize: theme.fontSize.sm, color: c.warning }}>
@@ -156,22 +144,16 @@ export function PatternPanel() {
         onClose={() => setConfirmOpen(false)}
         onConfirm={async () => {
           try {
-            await createRequest(force);
+            await createRequest();
           } catch (e) {
             // 그 사이 다른 사람이 요청했으면(409) 진행 중 번호를 다시 읽어 버튼을 막는다
             void refreshActive();
             throw e;
           }
-          setForce(false);
           setReloadKey((k) => k + 1);
         }}
       >
         지금 패턴을 빌드하고 QC 를 통과하면 바로 배포합니다.
-        {force && (
-          <p style={{ margin: "8px 0 0", color: c.warning }}>
-            force: 전량 예외 청크를 빼고 진행합니다 (ptnbuild build --force 와 같음).
-          </p>
-        )}
       </ConfirmModal>
     </Pane>
   );

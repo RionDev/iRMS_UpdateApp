@@ -29,13 +29,6 @@ const targetIcon = svg([
   <rect key="c" x="14" y="14" width="7" height="7" />,
   <rect key="d" x="3" y="14" width="7" height="7" />,
 ]);
-const scheduleIcon = svg([
-  <rect key="a" x="3" y="4" width="18" height="18" rx="2" />,
-  <line key="b" x1="16" y1="2" x2="16" y2="6" />,
-  <line key="c" x1="8" y1="2" x2="8" y2="6" />,
-  <line key="d" x1="3" y1="10" x2="21" y2="10" />,
-]);
-
 const policyIcon = svg([
   <line key="a" x1="4" y1="21" x2="4" y2="14" />,
   <line key="b" x1="4" y1="10" x2="4" y2="3" />,
@@ -67,7 +60,6 @@ export function useUpdateNavItems(): SidebarItem[] {
         icon: targetIcon,
         children: [
           { label: "배포 대상", to: "/targets", icon: targetIcon },
-          { label: "배포 시각", to: "/schedule", icon: scheduleIcon },
           { label: "데몬 정책", to: "/policies", icon: policyIcon },
         ],
       },
