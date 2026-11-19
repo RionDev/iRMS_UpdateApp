@@ -43,6 +43,8 @@ export interface LogItem {
   signal_tag: string | null;
   /** 바로 앞 성공(DONE) 배포의 inputs — 바뀐 것 비교용 */
   prev_inputs: string | null;
+  /** request_id 의 requested_by — 'ptnbuild build' 면 156 명령줄 빌드 */
+  request_requested_by: string | null;
 }
 
 export interface PatternRequestItem {

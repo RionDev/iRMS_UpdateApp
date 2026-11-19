@@ -13,6 +13,7 @@ import { REQUEST_POLL_MS, REQUEST_STATUS } from "../constants";
 import { UPDATE_APP, UpdateFeature } from "../features";
 import { createRequest, getSchedule, listRequests } from "../services/updateService";
 import type { PatternRequestItem, ScheduleStatus } from "../types/deploy";
+import { isCliRequest, requesterLabel } from "../utils/cause";
 
 const PAGE_SIZE = 20;
 
@@ -71,7 +72,18 @@ export function PatternPanel() {
 
   const columns: TableColumn<PatternRequestItem>[] = [
     { key: "id", label: "#" },
-    { key: "requested_by", label: "요청자", render: (r) => r.requested_by ?? "-" },
+    {
+      key: "requested_by",
+      label: "요청자",
+      render: (r) =>
+        isCliRequest(r.requested_by) ? (
+          <span title="156 에서 ptnbuild build 명령으로 돌린 빌드 — 웹 요청 아님" style={{ color: c.textMuted }}>
+            {requesterLabel(r.requested_by)}
+          </span>
+        ) : (
+          requesterLabel(r.requested_by)
+        ),
+    },
     {
       key: "status",
       label: "상태",

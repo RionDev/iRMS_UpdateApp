@@ -14,6 +14,7 @@ import { useLoadError } from "../hooks/useLoadError";
 import { listLogs } from "../services/updateService";
 import type { LogFilters, LogItem } from "../types/deploy";
 import { parseInputs } from "../utils/inputs";
+import { logCause } from "../utils/cause";
 import { diffInputs, type InputChange } from "../utils/inputsDiff";
 
 const PAGE_SIZE = 20;
@@ -22,13 +23,6 @@ const RESULT_OPTIONS = [
   { value: undefined, label: "전체" },
   ...[1, 2].map((r) => ({ value: r as number | undefined, label: LOG_RESULT[r].label })),
 ];
-
-/** 이 배포를 일으킨 것 */
-function cause(l: LogItem): string {
-  if (l.trigger === 2) return l.signal_project_name ? `시그널 ${l.signal_project_name} ${l.signal_tag}` : `시그널 #${l.signal_id ?? "-"}`;
-  if (l.trigger === 3) return l.request_id ? `웹 수동 요청 #${l.request_id}` : "156 에서 직접 실행";
-  return "정기 배포";
-}
 
 function Changes({ items, emptyText }: { items: InputChange[]; emptyText?: string }) {
   const { theme } = useThemeStore();
@@ -75,7 +69,7 @@ function LogDetail({ log }: { log: LogItem }) {
     <div style={{ padding: "24px", fontSize: theme.fontSize.base, color: c.text }}>
       <h2 style={{ margin: "0 0 16px", fontSize: theme.fontSize.xxl }}>배포 기록 #{log.id}</h2>
       {line("시각", log.logged_at)}
-      {line("계기", <span style={{ display: "inline-flex", gap: "8px" }}><StatusBadge meta={LOG_TRIGGER[log.trigger]} />{cause(log)}</span>)}
+      {line("계기", <span style={{ display: "inline-flex", gap: "8px" }}><StatusBadge meta={LOG_TRIGGER[log.trigger]} />{logCause(log)}</span>)}
       {line("결과", <StatusBadge meta={LOG_RESULT[log.result]} />)}
       {log.reason && line("사유", <span style={{ color: c.danger }}>{log.reason}</span>)}
       <h3 style={{ margin: "24px 0 8px", fontSize: theme.fontSize.xl }}>이번에 바뀐 것</h3>
@@ -148,7 +142,7 @@ export function LogsPage() {
       render: (l) => (
         <span style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
           <StatusBadge meta={LOG_TRIGGER[l.trigger]} />
-          {l.trigger === 3 && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>{cause(l)}</span>}
+          {l.trigger === 3 && <span style={{ fontSize: theme.fontSize.sm, color: c.textMuted }}>{logCause(l)}</span>}
         </span>
       ),
     },
