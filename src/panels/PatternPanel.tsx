@@ -44,9 +44,9 @@ export function PatternPanel() {
       return page;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reloadKey, track],
+    [track],
   );
-  const nav = usePagedNav<PatternRequestItem>({ fetcher, size: PAGE_SIZE, deps: [reloadKey] });
+  const nav = usePagedNav<PatternRequestItem>({ fetcher, size: PAGE_SIZE });
 
   // 진행 중인 요청 번호만 다시 읽는다 — 보고 있는 목록 페이지는 그대로 둔다
   const refreshActive = useCallback(
@@ -64,11 +64,12 @@ export function PatternPanel() {
   useEffect(() => {
     if (activeId === null) return;
     const t = window.setInterval(() => {
-      if (pageRef.current === 1) setReloadKey((k) => k + 1);
+      // 1페이지면 목록째 다시 읽되 기존 행은 유지(nav.refresh), 스케줄은 reloadKey 로
+      if (pageRef.current === 1) { void nav.refresh(); setReloadKey((k) => k + 1); }
       else void refreshActive();
     }, REQUEST_POLL_MS);
     return () => window.clearInterval(t);
-  }, [activeId, refreshActive]);
+  }, [activeId, refreshActive, nav.refresh]);
 
   const columns: TableColumn<PatternRequestItem>[] = [
     { key: "id", label: "#" },
@@ -162,7 +163,8 @@ export function PatternPanel() {
             void refreshActive();
             throw e;
           }
-          setReloadKey((k) => k + 1);
+          nav.reset();                    // 새 요청이 1페이지 맨 위에 오도록 첫 페이지로
+          setReloadKey((k) => k + 1);     // 스케줄 다시 읽기
         }}
       >
         지금 패턴을 빌드하고 QC 를 통과하면 바로 배포합니다.
